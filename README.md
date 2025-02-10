@@ -15,4 +15,4 @@ To avoid lag, the file is read and displayed in the console every 5 seconds.
 ## Server Setup
 * Have a (Linux) minecraft server with a start file named `start.sh`
 * Have SSH enabled with a user that does not require pubkey auth. (don't give them sudo!)
-* `sudo apt install screen` (or your favorite package manager)
+* `sudo apt install screen` (or use your favorite package manager)
