@@ -13,6 +13,6 @@ To avoid lag, the file is read and new lines are displayed in the console every 
 * `python3 serverman.py`
 
 ## Server Setup
-* Have a (Linux) minecraft server with a start file named `start.sh`
+* Have a (Linux) minecraft server located at `~/server/` with a start file named `start.sh`
 * Have SSH enabled with a user that does not require pubkey auth. (don't give them sudo!)
 * `sudo apt install screen` (or use your favorite package manager)
