@@ -5,9 +5,11 @@ from tkinter import font
 from tkinter import *
 
 from time import sleep
+import os
 import difflib
 import threading
 import paramiko
+import subprocess
 
 root = Tk() 
 LF = "\n"
@@ -15,6 +17,9 @@ SERVER_DIR = "~/server"
 SCREEN_SESSION = "server"
 SCREEN_LOG_FILE = f"{SERVER_DIR}/stdout.log"
 SCREEN_LOG_DIFF = f"{SERVER_DIR}/diff.log"
+
+REMOTE_HOST = "tiger"
+USER = "ftb"
 
 class TkGUI:
 
@@ -29,7 +34,7 @@ class TkGUI:
         notebook.pack(side="bottom", fill="both", expand=True)
 
         self.left = Frame(root, bg="sky blue", width=300)
-        self.right = Frame(root, bg="thistle2", width=400)
+        self.right = Frame(root, bg="gray64", width=400)
         #self.term = Frame(root, bg="blue", width=400)
         
         self.term = Frame(notebook, bg="black", width=400)
@@ -41,6 +46,22 @@ class TkGUI:
         self.left.pack(side="left", fill="both")
         self.right.pack(side="top", fill="both", expand=True)
         #self.term.pack(side="bottom", fill="both", expand=True)
+        
+        # ========== status control ==========
+        self.user_label = Label(self.left, text=f"user: {USER}", font=("Consolas", 12))
+        self.user_label.grid(row=0, column=0, padx=30, pady=10)
+        
+        self.host_label = Label(self.left, text=f"remote host: {REMOTE_HOST}", font=("Consolas", 12))
+        self.host_label.grid(row=1, column=0, padx=30, pady=10)
+        
+        self.shell_button = Button(self.left, text="Reconnect", command=self.reconnect, font=("Consolas", 14))
+        self.shell_button.grid(row=2, column=0, padx=30, pady=10)
+        
+        self.shell_button = Button(self.left, text="Edit server.properties", command=self.edit_props, font=("Consolas", 14))
+        self.shell_button.grid(row=3, column=0, padx=30, pady=10)
+        
+        self.shell_button = Button(self.left, text="Launch real shell", command=self.launch_shell, font=("Consolas", 14))
+        self.shell_button.grid(row=4, column=0, padx=30, pady=10)
         
         # ========== shell commands ==========
         
@@ -113,8 +134,8 @@ class TkGUI:
         self.cpu.grid(row=4, column=1, padx=10, pady=10)
         self.mem.grid(row=4, column=2, padx=10, pady=10)
         
-        self.passwd = self.get_passwd()
-        self.session = RemoteSession("tiger", "ftb", self.passwd)
+        self.host, self.user, self.passwd = self.get_passwd()
+        self.session = RemoteSession(self.host, self.user, self.passwd)
         
         status = self.session.do_shell_cmd("ps")
         if "screen" in "".join(status):   
@@ -132,6 +153,16 @@ class TkGUI:
         self.term_lb.insert(END, "========== end of message ==========")
         self.shell_entry.delete(0, END)
         self.term_lb.yview(END)
+        
+    def reconnect(self): 
+        self.host, self.user, self.passwd = self.get_passwd()
+        self.session = RemoteSession(self.host, self.user, self.passwd)
+        
+    def edit_props(self):
+        self.session.edit_remote_file(f"/home/{self.user}/server/server.properties")
+    
+    def launch_shell(self):
+        subprocess.Popen(["cmd", "/K", f"ssh {USER}@{REMOTE_HOST}"])
         
     def run_server_cmd(self):
         self.session.do_server_cmd(self.server_entry.get())
@@ -194,7 +225,41 @@ class TkGUI:
         self.start_server()
     
     def get_passwd(self):
-        return simpledialog.askstring(title="Login", prompt="Enter your SSH password", show='*')
+        ret = ()
+        
+        dialog = Toplevel(root)
+        dialog.title("Connect to remote host")
+        
+        host = StringVar(value=REMOTE_HOST)
+        user = StringVar(value=USER)
+        pas  = StringVar()
+
+        # Add labels and entry widgets
+        Label(dialog, text="host:").grid(row=0, column=0, padx=10, pady=5)
+        entry1 = Entry(dialog, textvariable=host)
+        entry1.grid(row=0, column=1, padx=10, pady=5)
+
+        Label(dialog, text="user:").grid(row=1, column=0, padx=10, pady=5)
+        entry2 = Entry(dialog, textvariable=user)
+        entry2.grid(row=1, column=1, padx=10, pady=5)
+        
+        Label(dialog, text="password:").grid(row=2, column=0, padx=10, pady=5)
+        entry3 = Entry(dialog, textvariable=pas, show='*')
+        entry3.grid(row=2, column=1, padx=10, pady=5)
+
+        def get_resp():
+            dialog.destroy()
+            nonlocal ret 
+            ret = host.get(), user.get(), pas.get()
+
+        # Add a submit button
+        submit_button = Button(dialog, text="connect", command=lambda: get_resp())
+        submit_button.grid(row=3, columnspan=2, pady=10)
+        
+        dialog.grab_set()
+        dialog.wait_window()
+
+        return ret
 
 class RemoteSession:
     
@@ -236,7 +301,21 @@ class RemoteSession:
         # send command to the relavant session
         output = self.do_shell_cmd(f"screen -S {SCREEN_SESSION} -X stuff '{command}'`echo -ne \015`")
         print(f"output {output}")
+        
+    def edit_remote_file(self, filename):
+        sftp = self.client.open_sftp()
+        sftp.get(filename, "./tmp.txt")
+        sftp.close()
+        
+        subprocess.run(["notepad.exe", "./tmp.txt"])
+        
+        sftp = self.client.open_sftp()
+        sftp.put("./tmp.txt", filename)
+        sftp.close()
 
+        os.remove("./tmp.txt")
+        
+        messagebox.showinfo("Restart Required!", "you must restart the server for changes to take effect.")
 
 gui = TkGUI(root)
 
