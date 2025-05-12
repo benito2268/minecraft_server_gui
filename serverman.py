@@ -19,7 +19,7 @@ SCREEN_LOG_FILE = f"{SERVER_DIR}/stdout.log"
 SCREEN_LOG_DIFF = f"{SERVER_DIR}/diff.log"
 
 REMOTE_HOST = "tiger"
-USER = "ftb"
+USER = "minecarft"
 
 class TkGUI:
 
